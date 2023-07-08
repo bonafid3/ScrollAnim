@@ -1,0 +1,299 @@
+
+function radToDeg(r) {
+  return r * 180 / Math.PI;
+}
+
+function degToRad(d) {
+  return d * Math.PI / 180;
+}
+
+var v3 = function(x, y, z) {
+  this.x = x || 0;
+  this.y = y || 0;
+  this.z = z || 0;
+};
+
+v3.prototype.subtract = function(other) {
+  this.x = this.x - other.x;
+  this.y = this.y - other.y;
+  this.z = this.z - other.z;
+  return this;
+};
+
+v3.prototype.normalize = function() {
+  var len = this.x * this.x + this.y * this.y + this.z * this.z;
+  var sqrtLen = Math.sqrt(len);
+  this.x = this.x / sqrtLen;
+  this.y = this.y / sqrtLen;
+  this.z = this.z / sqrtLen;
+  return this;  
+};
+
+v3.prototype.negate = function() {
+  this.x *= -1;
+  this.y *= -1;
+  this.z *= -1;
+  return this;
+}
+
+v3.prototype.negated = function() {
+  return new v3(-this.x, -this.y, -this.z);
+}
+
+v3.crossProduct = function(v1, v2) {
+  return new v3(v1.y * v2.z - v1.z * v2.y,
+                v1.z * v2.x - v1.x * v2.z,
+                v1.x * v2.y - v1.y * v2.x);
+};
+
+var mat4 = function() {
+  this.m11 = 1;
+  this.m12 = 0;
+  this.m13 = 0;
+  this.m14 = 0;
+
+  this.m21 = 0;
+  this.m22 = 1;
+  this.m23 = 0;
+  this.m24 = 0;
+
+  this.m31 = 0;
+  this.m32 = 0;
+  this.m33 = 1;
+  this.m34 = 0;
+
+  this.m41 = 0;
+  this.m42 = 0;
+  this.m43 = 0;
+  this.m44 = 1;
+};
+
+mat4.prototype.perspective = function(fieldOfViewInRadians, aspect, near, far) {
+  var f = Math.tan(Math.PI * 0.5 - 0.5 * fieldOfViewInRadians);
+  var rangeInv = 1.0 / (near - far);
+
+  this.m11 = f/aspect;
+  this.m12 = 0;
+  this.m13 = 0;
+  this.m14 = 0;
+
+  this.m21 = 0;
+  this.m22 = f;
+  this.m23 = 0;
+  this.m24 = 0;
+
+  this.m31 = 0;
+  this.m32 = 0;
+  this.m33 = (near + far) * rangeInv;
+  this.m34 = -1;
+
+  this.m41 = 0;
+  this.m42 = 0;
+  this.m43 = near * far * rangeInv * 2;
+  this.m44 = 0;
+
+  return this;
+};
+
+mat4.prototype.ortho = function(left, right, bottom, top, nearPlane, farPlane) {
+
+  // Bail out if the projection volume is zero-sized.
+  if (left == right || bottom == top || nearPlane == farPlane)
+      return;
+
+  // Construct the projection.
+  var width = right - left;
+  var invheight = top - bottom;
+  var clip = farPlane - nearPlane;
+
+  this.m11 = 2.0 / width;
+  this.m12 = 0;
+  this.m13 = 0;
+  this.m14 = -(left + right) / width;
+
+  this.m21 = 0;
+  this.m22 = 2.0 / invheight;
+  this.m23 = 0;
+  this.m24 = -(top + bottom) / invheight;
+
+  this.m31 = 0;
+  this.m32 = 0;
+  this.m33 = -2.0 / clip;
+  this.m34 = -(nearPlane + farPlane) / clip;
+
+  this.m41 = 0;
+  this.m42 = 0;
+  this.m43 = 0;
+  this.m44 = 1;
+
+  return this;
+};
+
+mat4.prototype.translate = function(v) {
+  this.m41 += this.m11 * v.x + this.m21 * v.y + this.m31 * v.z;
+  this.m42 += this.m12 * v.x + this.m22 * v.y + this.m32 * v.z;
+  this.m43 += this.m13 * v.x + this.m23 * v.y + this.m33 * v.z;
+  this.m44 += this.m14 * v.x + this.m24 * v.y + this.m34 * v.z;
+};
+
+mat4.prototype.multiply = function(other) {
+  var m0;
+  var m1;
+  var m2;
+  m0 = this.m11 * other.m11
+          + this.m21 * other.m12
+          + this.m31 * other.m13
+          + this.m41 * other.m14;
+  m1 = this.m11 * other.m21
+          + this.m21 * other.m22
+          + this.m31 * other.m23
+          + this.m41 * other.m24;
+  m2 = this.m11 * other.m31
+          + this.m21 * other.m32
+          + this.m31 * other.m33
+          + this.m41 * other.m34;
+  this.m41 = this.m11 * other.m41
+          + this.m21 * other.m42
+          + this.m31 * other.m43
+          + this.m41 * other.m44;
+  this.m11 = m0;
+  this.m21 = m1;
+  this.m31 = m2;
+
+  m0 = this.m12 * other.m11
+          + this.m22 * other.m12
+          + this.m32 * other.m13
+          + this.m42 * other.m14;
+  m1 = this.m12 * other.m21
+          + this.m22 * other.m22
+          + this.m32 * other.m23
+          + this.m42 * other.m24;
+  m2 = this.m12 * other.m31
+          + this.m22 * other.m32
+          + this.m32 * other.m33
+          + this.m42 * other.m34;
+  this.m42 = this.m12 * other.m41
+          + this.m22 * other.m42
+          + this.m32 * other.m43
+          + this.m42 * other.m44;
+  this.m12 = m0;
+  this.m22 = m1;
+  this.m32 = m2;
+
+  m0 = this.m13 * other.m11
+          + this.m23 * other.m12
+          + this.m33 * other.m13
+          + this.m43 * other.m14;
+  m1 = this.m13 * other.m21
+          + this.m23 * other.m22
+          + this.m33 * other.m23
+          + this.m43 * other.m24;
+  m2 = this.m13 * other.m31
+          + this.m23 * other.m32
+          + this.m33 * other.m33
+          + this.m43 * other.m34;
+  this.m43 = this.m13 * other.m41
+          + this.m23 * other.m42
+          + this.m33 * other.m43
+          + this.m43 * other.m44;
+  this.m13 = m0;
+  this.m23 = m1;
+  this.m33 = m2;
+
+  m0 = this.m14 * other.m11
+          + this.m24 * other.m12
+          + this.m34 * other.m13
+          + this.m44 * other.m14;
+  m1 = this.m14 * other.m21
+          + this.m24 * other.m22
+          + this.m34 * other.m23
+          + this.m44 * other.m24;
+  m2 = this.m14 * other.m31
+          + this.m24 * other.m32
+          + this.m34 * other.m33
+          + this.m44 * other.m34;
+  this.m44 = this.m14 * other.m41
+          + this.m24 * other.m42
+          + this.m34 * other.m43
+          + this.m44 * other.m44;
+  this.m14 = m0;
+  this.m24 = m1;
+  this.m34 = m2;
+  return this;
+};
+
+mat4.prototype.rotate = function(angle, _x, _y, _z) {
+  var a = degToRad(angle);
+  var c = Math.cos(a);
+  var s = Math.sin(a);
+
+  var v = new v3(_x, _y, _z).normalize();
+  var x = v.x;
+  var y = v.y;
+  var z = v.z;
+
+  var ic = 1.0 - c;
+  rot = new mat4();
+  rot.m11 = x * x * ic + c;
+  rot.m21 = x * y * ic - z * s;
+  rot.m31 = x * z * ic + y * s;
+  rot.m41 = 0.0;
+  rot.m12 = y * x * ic + z * s;
+  rot.m22 = y * y * ic + c;
+  rot.m32 = y * z * ic - x * s;
+  rot.m42 = 0.0;
+  rot.m13 = x * z * ic - y * s;
+  rot.m23 = y * z * ic + x * s;
+  rot.m33 = z * z * ic + c;
+  rot.m43 = 0.0;
+  rot.m14 = 0.0;
+  rot.m24 = 0.0;
+  rot.m34 = 0.0;
+  rot.m44 = 1.0;
+
+  this.multiply(rot);
+
+  return this;
+};
+
+mat4.prototype.data = function() {
+  return [
+    this.m11, this.m12, this.m13, this.m14,
+    this.m21, this.m22, this.m23, this.m24,
+    this.m31, this.m32, this.m33, this.m34,
+    this.m41, this.m42, this.m43, this.m44
+  ];
+};
+
+mat4.prototype.lookAt = function(eye, center, up) {
+  var forward = center.subtract(eye);
+
+  forward.normalize();
+
+  var side = v3.crossProduct(forward, up);
+  side.normalize();
+  var upVector = v3.crossProduct(side, forward);
+
+  this.m11 = side.x;
+  this.m12 = side.y;
+  this.m13 = side.z;
+  this.m14 = 0.0;
+
+  this.m21 = upVector.x;
+  this.m22 = upVector.y;
+  this.m23 = upVector.z;
+  this.m24 = 0.0;
+
+  this.m31 = -forward.x;
+  this.m32 = -forward.y;
+  this.m33 = -forward.z;
+  this.m34 = 0.0;
+
+  this.m41 = 0.0;
+  this.m42 = 0.0;
+  this.m43 = 0.0;
+  this.m44 = 1.0;
+
+  this.translate(eye.negated());
+  return this;
+};
